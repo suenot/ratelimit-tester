@@ -185,6 +185,7 @@ class RateLimitTester:
             "ip": proxy_key,
             "interval": proxy.interval_ms,
             "lifetime": lifetime_ms,
+            "lifetime_readable": self._format_time(lifetime_ms),
             "errors": fail_count,
             "errors_percents": round(error_percentage, 2)
         }

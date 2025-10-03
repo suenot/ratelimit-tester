@@ -182,6 +182,28 @@ class RateLimitTester:
         logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} | Reason: {reason} | Lifetime: {formatted_time}")
         self._save_config()
 
+    def _should_disable_proxy(self, success_count: int, fail_count: int, consecutive_fails: int) -> tuple[bool, str]:
+        """
+        Check if proxy should be disabled based on disable policy.
+        Returns (should_disable, reason)
+        """
+        disable_policy = self.config.get('disable_policy', {})
+
+        # Check consecutive failures threshold
+        consecutive_threshold = disable_policy.get('consecutive_threshold', 1)
+        if consecutive_fails >= consecutive_threshold:
+            return True, f'consecutive_fails_{consecutive_fails}'
+
+        # Check percentage failures threshold
+        percentage_threshold = disable_policy.get('percentage_threshold', 100)
+        total_requests = success_count + fail_count
+        if total_requests > 0:
+            fail_percentage = (fail_count / total_requests) * 100
+            if fail_percentage >= percentage_threshold:
+                return True, f'fail_rate_{fail_percentage:.1f}%'
+
+        return False, ''
+
     def test_proxy(self, proxy: ProxyConfig) -> Dict[str, Any]:
         """
         Test a single proxy with the configured API in infinite loop.
@@ -209,10 +231,11 @@ class RateLimitTester:
 
         success_count = 0
         fail_count = 0
+        consecutive_fails = 0
         start_time = time.time()
         request_num = 0
 
-        # Test in infinite loop until error
+        # Test in infinite loop until disable policy triggers
         try:
             while True:
                 request_num += 1
@@ -239,41 +262,48 @@ class RateLimitTester:
 
                     if is_valid:
                         success_count += 1
+                        consecutive_fails = 0  # Reset consecutive counter on success
                         elapsed_time = self._format_time(int((time.time() - start_time) * 1000))
                         logger.info(f"✅ Request #{request_num} OK | Success: {success_count}, Fail: {fail_count} | Proxy: {proxy.host}:{proxy.port} | Runtime: {elapsed_time}")
                     else:
                         fail_count += 1
-                        logger.error(f"❌ Request #{request_num} FAILED | Reason: {reason} | Proxy: {proxy.host}:{proxy.port}")
+                        consecutive_fails += 1
+                        logger.error(f"❌ Request #{request_num} FAILED | Reason: {reason} | Consecutive fails: {consecutive_fails} | Proxy: {proxy.host}:{proxy.port}")
 
-                        # Disable proxy immediately on any error
-                        self._disable_proxy(proxy, reason)
+                        # Check if proxy should be disabled based on policy
+                        should_disable, disable_reason = self._should_disable_proxy(success_count, fail_count, consecutive_fails)
+                        if should_disable:
+                            self._disable_proxy(proxy, f"{reason}_{disable_reason}")
+                            return {
+                                'proxy': f"{proxy.host}:{proxy.port}",
+                                'status': 'disabled',
+                                'reason': disable_reason,
+                                'requests_tested': request_num,
+                                'success_count': success_count,
+                                'fail_count': fail_count,
+                                'elapsed_seconds': time.time() - start_time
+                            }
+
+                except Exception as e:
+                    fail_count += 1
+                    consecutive_fails += 1
+                    error_msg = str(e)
+                    logger.error(f"❌ Request #{request_num} EXCEPTION | Error: {error_msg[:100]} | Consecutive fails: {consecutive_fails} | Proxy: {proxy.host}:{proxy.port}")
+
+                    # Check if proxy should be disabled based on policy
+                    should_disable, disable_reason = self._should_disable_proxy(success_count, fail_count, consecutive_fails)
+                    if should_disable:
+                        self._disable_proxy(proxy, f"exception_{disable_reason}")
                         return {
                             'proxy': f"{proxy.host}:{proxy.port}",
                             'status': 'disabled',
-                            'reason': reason,
+                            'reason': disable_reason,
+                            'error': error_msg,
                             'requests_tested': request_num,
                             'success_count': success_count,
                             'fail_count': fail_count,
                             'elapsed_seconds': time.time() - start_time
                         }
-
-                except Exception as e:
-                    fail_count += 1
-                    error_msg = str(e)
-                    logger.error(f"❌ Request #{request_num} EXCEPTION | Error: {error_msg[:100]} | Proxy: {proxy.host}:{proxy.port}")
-
-                    # Disable proxy on any exception
-                    self._disable_proxy(proxy, f"exception_{error_msg[:50]}")
-                    return {
-                        'proxy': f"{proxy.host}:{proxy.port}",
-                        'status': 'disabled',
-                        'reason': 'exception',
-                        'error': error_msg,
-                        'requests_tested': request_num,
-                        'success_count': success_count,
-                        'fail_count': fail_count,
-                        'elapsed_seconds': time.time() - start_time
-                    }
 
                 # Wait for the interval
                 time.sleep(proxy.interval_ms / 1000.0)

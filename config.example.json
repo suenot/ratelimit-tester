@@ -28,6 +28,10 @@
       ]
     }
   },
+  "disable_policy": {
+    "consecutive_threshold": 3,
+    "percentage_threshold": 5
+  },
   "proxies": [
     "http:proxy1.example.com:8080:username1:password1:enabled:4500",
     "http:proxy2.example.com:8080:username2:password2:enabled:4000",

@@ -49,6 +49,7 @@ class RateLimitTester:
         self.config = self._load_config()
         self.proxies = self._parse_proxies()
         self.session = requests.Session()
+        self.start_time = time.time()
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
@@ -152,7 +153,10 @@ class RateLimitTester:
     def _disable_proxy(self, proxy: ProxyConfig, reason: str) -> None:
         """Disable a proxy in the config."""
         proxy.status = "disabled"
-        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} - Reason: {reason}")
+        # Calculate time in milliseconds from start
+        elapsed_ms = int((time.time() - self.start_time) * 1000)
+        proxy.interval_ms = elapsed_ms
+        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} - Reason: {reason} - Time: {elapsed_ms}ms")
         self._save_config()
 
     def test_proxy(self, proxy: ProxyConfig) -> Dict[str, Any]:

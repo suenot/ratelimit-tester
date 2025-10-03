@@ -166,20 +166,31 @@ class RateLimitTester:
             minutes = (ms % 3600000) / 60000
             return f"{hours:.2f}h"
 
-    def _disable_proxy(self, proxy: ProxyConfig, reason: str) -> None:
+    def _disable_proxy(self, proxy: ProxyConfig, reason: str, success_count: int = 0, fail_count: int = 0) -> None:
         """Disable a proxy in the config."""
         proxy.status = "disabled"
         # Calculate lifetime in milliseconds from start
         lifetime_ms = int((time.time() - self.start_time) * 1000)
 
-        # Save lifetime to config
+        # Calculate error percentage
+        total_requests = success_count + fail_count
+        error_percentage = (fail_count / total_requests * 100) if total_requests > 0 else 0
+
+        # Save lifetime to config with detailed info
         proxy_key = f"{proxy.host}:{proxy.port}"
         if 'lifetimes' not in self.config:
             self.config['lifetimes'] = {}
-        self.config['lifetimes'][proxy_key] = lifetime_ms
+
+        self.config['lifetimes'][proxy_key] = {
+            "ip": proxy_key,
+            "interval": proxy.interval_ms,
+            "lifetime": lifetime_ms,
+            "errors": fail_count,
+            "errors_percents": round(error_percentage, 2)
+        }
 
         formatted_time = self._format_time(lifetime_ms)
-        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} | Reason: {reason} | Lifetime: {formatted_time}")
+        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} | Reason: {reason} | Lifetime: {formatted_time} | Errors: {fail_count}/{total_requests} ({error_percentage:.1f}%)")
         self._save_config()
 
     def _should_disable_proxy(self, success_count: int, fail_count: int, consecutive_fails: int) -> tuple[bool, str]:
@@ -273,7 +284,7 @@ class RateLimitTester:
                         # Check if proxy should be disabled based on policy
                         should_disable, disable_reason = self._should_disable_proxy(success_count, fail_count, consecutive_fails)
                         if should_disable:
-                            self._disable_proxy(proxy, f"{reason}_{disable_reason}")
+                            self._disable_proxy(proxy, f"{reason}_{disable_reason}", success_count, fail_count)
                             return {
                                 'proxy': f"{proxy.host}:{proxy.port}",
                                 'status': 'disabled',
@@ -293,7 +304,7 @@ class RateLimitTester:
                     # Check if proxy should be disabled based on policy
                     should_disable, disable_reason = self._should_disable_proxy(success_count, fail_count, consecutive_fails)
                     if should_disable:
-                        self._disable_proxy(proxy, f"exception_{disable_reason}")
+                        self._disable_proxy(proxy, f"exception_{disable_reason}", success_count, fail_count)
                         return {
                             'proxy': f"{proxy.host}:{proxy.port}",
                             'status': 'disabled',

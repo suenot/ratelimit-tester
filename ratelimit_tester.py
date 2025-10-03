@@ -167,7 +167,7 @@ class RateLimitTester:
                 'reason': f'proxy is {proxy.status}'
             }
 
-        logger.info(f"🔄 Starting infinite test for proxy {proxy.host}:{proxy.port} with interval {proxy.interval_ms}ms")
+        logger.info(f"🔄 Starting infinite test [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
 
         # Build request params
         req_params = self._build_request_params()
@@ -211,10 +211,10 @@ class RateLimitTester:
 
                     if is_valid:
                         success_count += 1
-                        logger.info(f"✅ Request #{request_num}: OK (success: {success_count}, fail: {fail_count})")
+                        logger.info(f"✅ Request #{request_num}: OK (success: {success_count}, fail: {fail_count}) [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
                     else:
                         fail_count += 1
-                        logger.error(f"❌ Request #{request_num}: FAILED - {reason}")
+                        logger.error(f"❌ Request #{request_num}: FAILED - {reason} [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
 
                         # Disable proxy immediately on any error
                         self._disable_proxy(proxy, reason)
@@ -231,7 +231,7 @@ class RateLimitTester:
                 except Exception as e:
                     fail_count += 1
                     error_msg = str(e)
-                    logger.error(f"❌ Request #{request_num}: EXCEPTION - {error_msg}")
+                    logger.error(f"❌ Request #{request_num}: EXCEPTION - {error_msg} [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
 
                     # Disable proxy on any exception
                     self._disable_proxy(proxy, f"exception_{error_msg[:50]}")

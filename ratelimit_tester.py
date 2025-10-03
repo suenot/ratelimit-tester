@@ -150,13 +150,30 @@ class RateLimitTester:
 
         return True, "ok"
 
+    def _format_time(self, ms: int) -> str:
+        """Format milliseconds to human-readable format."""
+        if ms < 1000:
+            return f"{ms}ms"
+        elif ms < 60000:
+            seconds = ms / 1000
+            return f"{seconds:.2f}s"
+        elif ms < 3600000:
+            minutes = ms / 60000
+            seconds = (ms % 60000) / 1000
+            return f"{int(minutes)}m {seconds:.2f}s"
+        else:
+            hours = ms / 3600000
+            minutes = (ms % 3600000) / 60000
+            return f"{hours:.2f}h"
+
     def _disable_proxy(self, proxy: ProxyConfig, reason: str) -> None:
         """Disable a proxy in the config."""
         proxy.status = "disabled"
         # Calculate time in milliseconds from start
         elapsed_ms = int((time.time() - self.start_time) * 1000)
         proxy.interval_ms = elapsed_ms
-        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} - Reason: {reason} - Time: {elapsed_ms}ms")
+        formatted_time = self._format_time(elapsed_ms)
+        logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} | Reason: {reason} | Lifetime: {formatted_time}")
         self._save_config()
 
     def test_proxy(self, proxy: ProxyConfig) -> Dict[str, Any]:
@@ -171,7 +188,8 @@ class RateLimitTester:
                 'reason': f'proxy is {proxy.status}'
             }
 
-        logger.info(f"🔄 Starting infinite test [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
+        formatted_interval = self._format_time(proxy.interval_ms)
+        logger.info(f"🔄 Starting infinite test | Proxy: {proxy.host}:{proxy.port} | Interval: {formatted_interval}")
 
         # Build request params
         req_params = self._build_request_params()
@@ -215,10 +233,11 @@ class RateLimitTester:
 
                     if is_valid:
                         success_count += 1
-                        logger.info(f"✅ Request #{request_num}: OK (success: {success_count}, fail: {fail_count}) [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
+                        elapsed_time = self._format_time(int((time.time() - start_time) * 1000))
+                        logger.info(f"✅ Request #{request_num} OK | Success: {success_count}, Fail: {fail_count} | Proxy: {proxy.host}:{proxy.port} | Runtime: {elapsed_time}")
                     else:
                         fail_count += 1
-                        logger.error(f"❌ Request #{request_num}: FAILED - {reason} [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
+                        logger.error(f"❌ Request #{request_num} FAILED | Reason: {reason} | Proxy: {proxy.host}:{proxy.port}")
 
                         # Disable proxy immediately on any error
                         self._disable_proxy(proxy, reason)
@@ -235,7 +254,7 @@ class RateLimitTester:
                 except Exception as e:
                     fail_count += 1
                     error_msg = str(e)
-                    logger.error(f"❌ Request #{request_num}: EXCEPTION - {error_msg} [proxy: {proxy.host}:{proxy.port}, interval: {proxy.interval_ms}ms]")
+                    logger.error(f"❌ Request #{request_num} EXCEPTION | Error: {error_msg[:100]} | Proxy: {proxy.host}:{proxy.port}")
 
                     # Disable proxy on any exception
                     self._disable_proxy(proxy, f"exception_{error_msg[:50]}")

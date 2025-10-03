@@ -34,9 +34,22 @@ Copy `config.example.json` to `config.json` and edit it:
       "ratelimit_indicators": ["rate limit", "429"]
     }
   },
+  "disable_policy": {
+    "consecutive_threshold": 3,
+    "percentage_threshold": 5
+  },
   "proxies": [
     "http:host:port:user:pass:enabled:interval_ms"
-  ]
+  ],
+  "lifetimes": {
+    "host:port": {
+      "ip": "host:port",
+      "interval": 6000,
+      "lifetime": 355,
+      "errors": 100,
+      "errors_percents": 5.0
+    }
+  }
 }
 ```
 
@@ -51,6 +64,23 @@ Copy `config.example.json` to `config.json` and edit it:
 - **password**: Auth password
 - **status**: `enabled` or `disabled`
 - **interval_ms**: Request interval in milliseconds (e.g., 500 = 2 req/sec)
+
+### Disable Policy
+
+Controls when to automatically disable a proxy:
+
+- **consecutive_threshold**: Disable after N consecutive failures (default: 3)
+- **percentage_threshold**: Disable if error rate exceeds N% (default: 5)
+
+### Lifetimes
+
+Automatically populated when proxies are disabled. Contains detailed statistics:
+
+- **ip**: Proxy address (host:port)
+- **interval**: Request interval in milliseconds
+- **lifetime**: How long the proxy worked before being disabled (ms)
+- **errors**: Total number of errors
+- **errors_percents**: Error rate percentage
 
 ### Validation Rules
 

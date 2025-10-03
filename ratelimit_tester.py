@@ -275,7 +275,7 @@ class RateLimitTester:
                         success_count += 1
                         consecutive_fails = 0  # Reset consecutive counter on success
                         elapsed_time = self._format_time(int((time.time() - start_time) * 1000))
-                        logger.info(f"✅ Request #{request_num} OK | Success: {success_count}, Fail: {fail_count} | Proxy: {proxy.host}:{proxy.port} | Runtime: {elapsed_time}")
+                        logger.info(f"✅ Request #{request_num} OK | Success: {success_count}, Fail: {fail_count} | Proxy: {proxy.host}:{proxy.port} | Interval: {proxy.interval_ms} | Runtime: {elapsed_time}")
                     else:
                         fail_count += 1
                         consecutive_fails += 1

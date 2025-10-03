@@ -169,10 +169,16 @@ class RateLimitTester:
     def _disable_proxy(self, proxy: ProxyConfig, reason: str) -> None:
         """Disable a proxy in the config."""
         proxy.status = "disabled"
-        # Calculate time in milliseconds from start
-        elapsed_ms = int((time.time() - self.start_time) * 1000)
-        proxy.interval_ms = elapsed_ms
-        formatted_time = self._format_time(elapsed_ms)
+        # Calculate lifetime in milliseconds from start
+        lifetime_ms = int((time.time() - self.start_time) * 1000)
+
+        # Save lifetime to config
+        proxy_key = f"{proxy.host}:{proxy.port}"
+        if 'lifetimes' not in self.config:
+            self.config['lifetimes'] = {}
+        self.config['lifetimes'][proxy_key] = lifetime_ms
+
+        formatted_time = self._format_time(lifetime_ms)
         logger.warning(f"🔴 DISABLED proxy {proxy.host}:{proxy.port} | Reason: {reason} | Lifetime: {formatted_time}")
         self._save_config()
 

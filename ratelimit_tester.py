@@ -391,12 +391,7 @@ def main():
     tester = RateLimitTester(config_path)
     results = tester.test_all_proxies()
 
-    # Save results to file
-    results_file = Path("test_results.json")
-    with open(results_file, 'w') as f:
-        json.dump(results, f, indent=2)
-
-    logger.info(f"\nResults saved to {results_file}")
+    logger.info("\nTesting completed. All results are saved in config.json")
 
 
 if __name__ == "__main__":

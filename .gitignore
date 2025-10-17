@@ -1,2 +1,5 @@
 .DS_Store
 config.json
+.venv/
+config.*.json
+!config.example.json

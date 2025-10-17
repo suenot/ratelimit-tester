@@ -136,16 +136,58 @@ class RateLimitTester:
             if indicator.lower() in response_text:
                 return False, "ratelimit_error"
 
-        # Check success field in JSON response
+        # Check JSON response structure and content
         try:
             data = response.json()
+
+            # Check if response should be an array
+            if validation.get('response_type') == 'array':
+                if not isinstance(data, list):
+                    return False, "invalid_response_type_expected_array"
+                # Check minimum array length if specified
+                min_length = validation.get('min_array_length', 0)
+                if len(data) < min_length:
+                    return False, f"array_too_short_{len(data)}_min_{min_length}"
+
+            # Check if response should be an object
+            elif validation.get('response_type') == 'object':
+                if not isinstance(data, dict):
+                    return False, "invalid_response_type_expected_object"
+
+            # Check regex pattern if specified
+            regex_pattern = validation.get('response_regex')
+            if regex_pattern:
+                import re
+                if not re.search(regex_pattern, response.text):
+                    return False, "regex_pattern_not_matched"
+
+            # Check success field in JSON response (legacy support)
             success_field = validation.get('success_field')
             success_value = validation.get('success_value')
 
             if success_field and success_field in data:
                 if data[success_field] != success_value:
                     return False, "api_success_false"
-        except:
+
+            # Check required fields if specified
+            required_fields = validation.get('required_fields', [])
+            if isinstance(data, dict):
+                for field in required_fields:
+                    if field not in data:
+                        return False, f"missing_field_{field}"
+            elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                # Check required fields in first array element
+                for field in required_fields:
+                    if field not in data[0]:
+                        return False, f"missing_field_{field}"
+
+        except json.JSONDecodeError:
+            # If response is not JSON but validation expects it
+            if validation.get('response_type'):
+                return False, "invalid_json"
+            pass
+        except Exception as e:
+            logger.debug(f"Validation error: {e}")
             pass
 
         return True, "ok"

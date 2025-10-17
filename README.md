@@ -79,6 +79,7 @@ Automatically populated when proxies are disabled. Contains detailed statistics:
 - **ip**: Proxy address (host:port)
 - **interval**: Request interval in milliseconds
 - **lifetime**: How long the proxy worked before being disabled (ms)
+- **lifetime_readable**: Human-readable lifetime (e.g., "1m 23.45s", "2.5h")
 - **errors**: Total number of errors
 - **errors_percents**: Error rate percentage
 
@@ -89,7 +90,13 @@ The tool checks responses for:
 1. **HTTP Status**: Must be 200 (429 = rate limit)
 2. **Cloudflare**: Searches for indicators in response text
 3. **Rate Limit**: Searches for rate limit messages
-4. **Success Field**: Checks JSON field (e.g., `{"success": true}`)
+4. **Response Type**: Validates JSON structure
+   - `response_type: "array"` - ensures response is an array
+   - `response_type: "object"` - ensures response is an object
+   - `min_array_length: N` - minimum array length required
+5. **Regex Pattern**: `response_regex` - matches response against regex pattern
+6. **Required Fields**: `required_fields: ["field1", "field2"]` - checks for required fields
+7. **Success Field**: Checks JSON field (e.g., `{"success": true}`) - legacy support
 
 ## Usage
 
@@ -101,11 +108,12 @@ pip install -r requirements.txt
 cp config.example.json config.json
 
 # Edit config.json with your API and proxies
-# Then run tests
+# Then run tests with default config
 python ratelimit_tester.py
 
-# Or with custom config
-python ratelimit_tester.py path/to/config.json
+# Or specify a custom config file
+python ratelimit_tester.py config.some.json
+python ratelimit_tester.py path/to/your/config.json
 ```
 
 ## Output
@@ -138,6 +146,21 @@ RATE LIMIT TEST SUMMARY
 - Testing API proxy compatibility
 - Detecting blocked/rate-limited proxies
 - Validating proxy pool health
+
+## Example Configs
+
+### Array Response API
+
+Test an API that returns an array:
+
+```bash
+python ratelimit_tester.py config.some.json
+```
+
+The `config.some.json` validates that:
+- Response is an array with at least 1 element
+- Each element has proper structure
+- No rate limiting or Cloudflare blocking occurs
 
 ## License
 
